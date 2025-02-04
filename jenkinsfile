@@ -1,0 +1,59 @@
+pipeline {
+        agent any  // Uruchamianie na dowolnym agencie
+
+
+    environment {
+        REPO_URL = 'https://github.com/InzynieriaOprogramowaniaAGH/MDO24_25_NS.git'
+        BRANCH_NAME = 'PK413631'
+    }
+
+      stages {
+        stage('Klonowanie repozytorium') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+                        sh '''
+                            rm -rf repo
+                            if [ ! -d "repo/.git" ]; then
+                                git clone --single-branch --branch PK413631 https://x-access-token:$GITHUB_TOKEN@github.com/InzynieriaOprogramowaniaAGH/MDO24_25_NS.git repo
+                            fi
+                        '''
+                        
+                    }
+                    
+                }
+            }
+        }
+
+        stage('Budowanie obrazów Docker') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+                        dir('repo') {
+                            sh 'docker build --build-arg GITHUB_PAT=$GITHUB_TOKEN -t my-image ./PH413631/Lab02'
+                            sh 'docker build -t myapp-lab03 ./PH413631/Lab03'
+                        }
+                        
+                    }
+                }
+            }
+        }
+        stage('Test') {
+            steps {
+                dir('repo') {
+                    sh 'docker run --rm myapp-lab03'
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Wszystkie obrazy zostały poprawnie zbudowane!"
+            sh 'docker images | grep myapp'  // Wyświetlenie listy zbudowanych obrazów
+        }
+        failure {
+            echo "Błąd podczas budowania obrazów. Sprawdź logi."
+        }
+    }
+}
